@@ -1,0 +1,10 @@
+{
+  "name": "LifeLens",
+  "short_name": "LifeLens",
+  "description": "Point your camera at any real-world problem and get expert help.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#161D1B",
+  "theme_color": "#161D1B",
+  "icons": []
+}
