@@ -39,3 +39,13 @@ A public journal of every milestone in this project. Newest entries at the botto
 **Problems solved along the way:** (1) The default model ID had been deprecated upstream and returned 404 on every scan; migrated to its documented replacement. (2) A transient TLS failure during the upstream call crashed the endpoint with an unhandled 500; the proxy now catches network-level errors — including the raw `ssl.SSLError` that httpx occasionally leaks unwrapped — and returns a retryable 502. (3) Web-search scans silently truncated mid-JSON at the old 1000-token output cap and could outlive the 60s upstream timeout; the budget is now 4096 tokens and the timeout 120s. Test suite grew to 14.
 
 **Next:** Deploy the backend to Render and the frontend to Vercel per docs/DEPLOYMENT.md, then test camera scans and clipboard-paste scans on real devices against the live URL.
+
+## Milestone 5 — Deployment to production
+
+**Built:** LifeLens is now live at https://lifelens-two.vercel.app. The backend runs on Render with the API key held as a server-side secret and CORS locked to the frontend origin; the frontend is a PWA on Vercel, installable on iOS, Android, Mac, and Windows. A `/scan` rewrite on Vercel proxies to the Render service, so the browser only ever talks to one origin.
+
+**Why:** A deployed app is a real product; localhost is a demo. Every platform (iPhone, Android, Mac, Windows) can now access the same codebase with appropriate input methods (camera on phones, paste on laptops).
+
+**Problem solved:** The app is no longer theoretical — it's on the internet and can be shared with anyone. Two deployment-day gotchas worth recording: Vercel's default deployment protection shipped the site behind a login wall (disabled in project settings — a public app must be publicly viewable), and Render assigned `lifelens-3y5q.onrender.com` rather than the service name the rewrite guessed, so the rewrite had to be repointed. The full production path was verified with a real scan: structured high-confidence result in ~17s.
+
+**Next:** Add mobile-specific polish (viewport meta tags, splash screens), streaming responses so results render as they arrive, and conversation follow-ups so users can ask clarification questions without retaking a photo.
