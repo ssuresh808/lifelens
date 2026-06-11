@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/scan", "destination": "https://lifelens-api.onrender.com/scan" }
+  ]
+}
