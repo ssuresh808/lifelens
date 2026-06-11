@@ -1,7 +1,9 @@
 """Tests for schema validation, prompt construction, and endpoint guards."""
 
 import base64
+import ssl
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -67,6 +69,25 @@ def test_scan_fails_clearly_without_api_key(monkeypatch):
     )
     assert r.status_code == 500
     assert "ANTHROPIC_API_KEY" in r.json()["detail"]
+
+
+@pytest.mark.parametrize(
+    "exc",
+    [httpx.ConnectError("network down"), ssl.SSLError("bad record mac")],
+    ids=["httpx-error", "raw-ssl-error"],
+)
+def test_scan_returns_502_when_upstream_unreachable(monkeypatch, exc):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+
+    async def boom(self, *args, **kwargs):
+        raise exc
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", boom)
+    r = client.post(
+        "/scan",
+        json={"mode": "auto", "media_type": "image/jpeg", "image_base64": FAKE_IMG},
+    )
+    assert r.status_code == 502
 
 
 def test_request_accepts_note_and_web_search():

@@ -73,7 +73,7 @@ async def scan(req: ScanRequest, request: Request) -> ScanResult:
 
     payload = {
         "model": MODEL,
-        "max_tokens": 1000,
+        "max_tokens": 4096,
         "system": build_system_prompt(req.mode, req.web_search),
         "messages": [
             {
@@ -102,16 +102,21 @@ async def scan(req: ScanRequest, request: Request) -> ScanResult:
     if req.web_search:
         payload["tools"] = [{"type": "web_search_20250305", "name": "web_search"}]
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(
-            ANTHROPIC_URL,
-            json=payload,
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-        )
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(
+                ANTHROPIC_URL,
+                json=payload,
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+            )
+    except (httpx.HTTPError, OSError) as exc:
+        # OSError covers ssl.SSLError, which httpx can leak unwrapped
+        logger.error("Upstream connection failed: %r", exc)
+        raise HTTPException(502, "Could not reach the vision model. Please try again.")
 
     if resp.status_code != 200:
         logger.error("Upstream error %s: %s", resp.status_code, resp.text[:500])
