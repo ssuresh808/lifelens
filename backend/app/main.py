@@ -23,7 +23,7 @@ logger = logging.getLogger("lifelens")
 logging.basicConfig(level=logging.INFO)
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
-MODEL = os.getenv("LIFELENS_MODEL", "claude-sonnet-4-20250514")
+MODEL = os.getenv("LIFELENS_MODEL", "claude-sonnet-4-6")
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB decoded
 RATE_LIMIT = 20          # requests
 RATE_WINDOW = 60 * 60    # per hour, per client IP
