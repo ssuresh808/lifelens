@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Mode = Literal["auto", "plant", "document", "fixit", "nutrition", "translate"]
+Mode = Literal["auto", "document", "fixit", "nutrition", "translate"]
 ALLOWED_MEDIA = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 
 

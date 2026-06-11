@@ -22,10 +22,16 @@ def test_health():
 
 
 def test_every_mode_has_a_brief_and_contract():
-    for mode in ("auto", "plant", "document", "fixit", "nutrition", "translate"):
+    for mode in ("auto", "document", "fixit", "nutrition", "translate"):
         prompt = build_system_prompt(mode)
         assert MODE_BRIEFS[mode] in prompt
         assert '"confidence"' in prompt  # output contract present
+
+
+def test_plant_mode_is_gone():
+    assert "plant" not in MODE_BRIEFS
+    with pytest.raises(ValueError):
+        ScanRequest(mode="plant", image_base64=FAKE_IMG)
 
 
 def test_unknown_mode_falls_back_to_auto():

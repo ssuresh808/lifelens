@@ -7,7 +7,6 @@ MODE_BRIEFS: dict[str, str] = {
         "product, vehicle, tool, artwork, symbol, food, document, error message, "
         "or anything else - then give genuinely useful help or context about it."
     ),
-    "plant": "You are a plant pathologist. Diagnose the plant's condition from visible symptoms.",
     "document": (
         "You are a patient expert who explains confusing documents (bills, "
         "contracts, government letters, forms) in plain language."
