@@ -2,6 +2,10 @@
 
 **Point your camera at any real-world problem. Get expert, structured help in seconds.**
 
+**Live at:** https://lifelens-two.vercel.app
+
+Try it now on any device: camera on iPhone/Android, drag-and-drop or paste (Cmd/Ctrl+V) on Mac/Windows.
+
 A sick houseplant. A utility bill you don't understand. A dishwasher flashing `E24`. A nutrition label. A government form in another language. LifeLens is one mobile-first app that turns a photo of any of these into a plain-language diagnosis and a concrete action plan — powered by a multimodal LLM behind a hardened API.
 
 ![CI](https://img.shields.io/badge/CI-passing-brightgreen) ![Python](https://img.shields.io/badge/python-3.11+-blue) ![React](https://img.shields.io/badge/react-18-61dafb) ![License](https://img.shields.io/badge/license-MIT-lightgrey)
