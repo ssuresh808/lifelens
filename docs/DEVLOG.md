@@ -29,3 +29,13 @@ A public journal of every milestone in this project. Newest entries at the botto
 ---
 
 <!-- Append new milestones below this line. Format: what was built, why, what problem it solved, what's next. One entry per pushed milestone. -->
+
+## Milestone 4 — First live scans against the real API
+
+**Built:** The repo went public on GitHub with CI (pytest + ruff + Vite build on every push), and the backend ran its first real scans against the live vision API — both the plain path and the "Search online" path, which returned a structured result with five cited sources inside the same schema.
+
+**Why:** Everything before this milestone was verified against mocks. A real key and real images are where the remaining assumptions break, and they did — three ways.
+
+**Problems solved along the way:** (1) The default model ID had been deprecated upstream and returned 404 on every scan; migrated to its documented replacement. (2) A transient TLS failure during the upstream call crashed the endpoint with an unhandled 500; the proxy now catches network-level errors — including the raw `ssl.SSLError` that httpx occasionally leaks unwrapped — and returns a retryable 502. (3) Web-search scans silently truncated mid-JSON at the old 1000-token output cap and could outlive the 60s upstream timeout; the budget is now 4096 tokens and the timeout 120s. Test suite grew to 14.
+
+**Next:** Deploy the backend to Render and the frontend to Vercel per docs/DEPLOYMENT.md, then test camera scans and clipboard-paste scans on real devices against the live URL.
