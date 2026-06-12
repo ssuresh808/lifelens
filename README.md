@@ -12,15 +12,15 @@ Tell Berry the five ingredients in your kitchen and get a menu of real dishes fr
 
 ## Why this project
 
-Most AI demos are chat windows. Real life isn't text — it's the physical stuff in front of you. LifeLens demonstrates how to ship multimodal AI as a product, not a prompt:
+Most AI demos are chat windows. Real life isn't text; it's the physical stuff in front of you. LifeLens demonstrates how to ship multimodal AI as a product, not a prompt:
 
-- **A conversational assistant with a face** — Berry, an SVG robot mascot with day/night variants and moods, fronts two chat experiences: Cook (ingredients in, feasible multicultural dish menus and scaled recipes out) and Ask (life questions in, direct answers with numbered steps, a concrete goal, and cited sources out), with on-device saved conversations
+- **A conversational assistant with a face:** Berry, an SVG robot mascot with day/night variants and moods, fronts two chat experiences: Cook (ingredients in, feasible multicultural dish menus and scaled recipes out) and Ask (life questions in, direct answers with numbered steps, a concrete goal, and cited sources out), with on-device saved conversations
 - **Vision + LLM reasoning** over real photos, with five expert scan "modes" (identify-anything, document explanation, appliance repair, nutrition, translation), plus an optional note/question attached to any scan, and photo input inside every chat
-- **Agentic web search** — toggle the globe and the model researches uncertain or time-sensitive subjects on the live web, returning cited sources in the same structured schema
-- **Schema-enforced structured output** — the model is contracted to a strict JSON shape, validated server-side with Pydantic before anything reaches a phone
-- **Security-first API design** — the model key never ships to the client; the FastAPI proxy adds input validation, payload limits, per-IP rate limiting, and CORS controls
-- **Truly cross-platform** — one PWA codebase that installs on iOS, Android, Mac, and Windows; camera capture on phones, drag-and-drop and clipboard paste (Ctrl/Cmd+V) for screenshots on laptops, with a two-column layout on wide screens
-- **Tested and CI-gated** — pytest suite covering schema contracts, prompt construction, and endpoint guards, run on every push
+- **Agentic web search:** toggle the globe and the model researches uncertain or time-sensitive subjects on the live web, returning cited sources in the same structured schema
+- **Schema-enforced structured output:** the model is contracted to a strict JSON shape, validated server-side with Pydantic before anything reaches a phone
+- **Security-first API design:** the model key never ships to the client; the FastAPI proxy adds input validation, payload limits, per-IP rate limiting, and CORS controls
+- **Truly cross-platform:** one PWA codebase that installs on iOS, Android, Mac, and Windows; camera capture on phones, drag-and-drop and clipboard paste (Ctrl/Cmd+V) for screenshots on laptops, with a two-column layout on wide screens
+- **Tested and CI-gated:** pytest suite covering schema contracts, prompt construction, and endpoint guards, run on every push
 
 ## How it works
 
@@ -95,8 +95,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full write-up, includin
 
 ## Built in public
 
-The entire build is journaled milestone-by-milestone in [docs/DEVLOG.md](docs/DEVLOG.md) — what was built, why, and which real-world problem each change solved (including the bug where full-resolution phone photos silently exceeded the vision API's payload limit). The working discipline throughout: commit per achievement, devlog every milestone, push green. Deployment to a live public URL is documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+The entire build is journaled milestone-by-milestone in [docs/DEVLOG.md](docs/DEVLOG.md): what was built, why, and which real-world problem each change solved (including the bug where full-resolution phone photos silently exceeded the vision API's payload limit). The working discipline throughout: commit per achievement, devlog every milestone, push green. Deployment to a live public URL is documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## License
 
-MIT — use it, fork it, ship it.
+MIT. Use it, fork it, ship it.
