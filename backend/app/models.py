@@ -42,7 +42,7 @@ Tab = Literal["cook", "ask"]
 class ChatMessage(BaseModel):
     role: Literal["user", "assistant"]
     text: str = Field(default="", max_length=4000)
-    image_base64: str | None = None
+    image_base64: str | None = Field(default=None, min_length=100)
     media_type: str | None = None
 
     def model_post_init(self, __context) -> None:
@@ -59,7 +59,7 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=30)
 
     def model_post_init(self, __context) -> None:
-        if sum(1 for m in self.messages if m.image_base64) > 2:
+        if sum(1 for m in self.messages if m.image_base64 is not None) > 2:
             raise ValueError("at most 2 images per request")
 
 

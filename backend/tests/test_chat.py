@@ -14,6 +14,11 @@ def test_chat_request_minimal():
     assert r.tab == "ask" and r.web_search is False
 
 
+def test_chat_request_cook_tab():
+    r = ChatRequest(tab="cook", messages=[{"role": "user", "text": "hi"}])
+    assert r.tab == "cook"
+
+
 def test_chat_request_rejects_bad_tab():
     with pytest.raises(ValueError):
         ChatRequest(tab="garden", messages=[{"role": "user", "text": "hi"}])
@@ -28,6 +33,11 @@ def test_chat_request_caps_history_at_30():
     msgs = [{"role": "user", "text": "hi"}] * 31
     with pytest.raises(ValueError):
         ChatRequest(messages=msgs)
+
+
+def test_chat_request_accepts_exactly_30_messages():
+    msgs = [{"role": "user", "text": "hi"}] * 30
+    assert len(ChatRequest(messages=msgs).messages) == 30
 
 
 def test_image_only_on_user_messages():
@@ -59,4 +69,5 @@ def test_chat_reply_round_trip_with_dishes_and_recipe():
         goal="Dinner on the table in 25 minutes.",
         sources=[{"title": "x", "url": "https://example.org"}],
     )
-    assert reply.dishes[0].minutes == 25 and reply.recipe.steps
+    assert reply.dishes[0].minutes == 25
+    assert reply.recipe.steps == ["Marinate the chicken."]
