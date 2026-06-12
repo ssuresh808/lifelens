@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.models import ChatMessage, ChatReply, ChatRequest
+from app.models import ChatMessage, ChatReply, ChatRequest, DishCard, Recipe
 from app.prompts import build_chat_prompt
 
 FAKE_IMG = base64.b64encode(b"x" * 200).decode()
@@ -174,11 +174,68 @@ def test_chat_tolerates_literal_newlines_in_strings(monkeypatch):
     assert "line two" in r.json()["message"]
 
 
-def test_chat_unparseable_reply_is_502(monkeypatch):
+# Berry's words must always reach the user: any non-empty reply is salvaged.
+
+def test_chat_plain_text_reply_is_salvaged(monkeypatch):
+    from app.main import _hits
+    _hits.clear()
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
-    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post("no json here"))
+    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post("Try the tofu tacos, they rock!"))
+    r = client.post("/chat", json={"messages": [{"role": "user", "text": "hello"}]})
+    assert r.status_code == 200
+    assert r.json()["message"] == "Try the tofu tacos, they rock!"
+
+
+def test_chat_trailing_commas_are_repaired(monkeypatch):
+    from app.main import _hits
+    _hits.clear()
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post('{"message": "ok", "chips": ["a",],}'))
+    r = client.post("/chat", json={"messages": [{"role": "user", "text": "hello"}]})
+    assert r.status_code == 200
+    assert r.json()["chips"] == ["a"]
+
+
+def test_chat_invalid_optional_payload_keeps_message(monkeypatch):
+    from app.main import _hits
+    _hits.clear()
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post('{"message": "menu time", "dishes": "whoops"}'))
+    r = client.post("/chat", json={"messages": [{"role": "user", "text": "hello"}]})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["message"] == "menu time"
+    assert body["dishes"] == []
+
+
+def test_chat_truncated_json_is_regex_salvaged(monkeypatch):
+    from app.main import _hits
+    _hits.clear()
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post('{"message": "half a reply", "dishes": [{"name": "x"'))
+    r = client.post("/chat", json={"messages": [{"role": "user", "text": "hello"}]})
+    assert r.status_code == 200
+    assert r.json()["message"] == "half a reply"
+
+
+def test_chat_empty_reply_is_502(monkeypatch):
+    from app.main import _hits
+    _hits.clear()
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post(""))
     r = client.post("/chat", json={"messages": [{"role": "user", "text": "hello"}]})
     assert r.status_code == 502
+
+
+def test_dishcard_coerces_sloppy_model_output():
+    d = DishCard(name="Tacos", minutes="25 min", serves=None)
+    assert d.minutes == 25 and d.serves == 0 and d.id == ""
+
+
+def test_recipe_accepts_plain_string_ingredients():
+    rec = Recipe(name="Bowl", ingredients=["eggs", {"item": "milk", "amount": 2}])
+    assert rec.ingredients[0].item == "eggs"
+    assert rec.ingredients[1].amount == "2"
 
 
 def test_chat_network_error_is_502(monkeypatch):

@@ -1,8 +1,19 @@
 """Request and response schemas. The contract between phone and server."""
 
+import re
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def _loose_int(v):
+    """The model sometimes writes '25 min' or null where a number belongs."""
+    if v is None:
+        return 0
+    if isinstance(v, str):
+        m = re.search(r"\d+", v)
+        return int(m.group()) if m else 0
+    return v
 
 Mode = Literal["auto", "document", "fixit", "nutrition", "translate"]
 ALLOWED_MEDIA = {"image/jpeg", "image/png", "image/webp", "image/gif"}
@@ -66,7 +77,7 @@ class ChatRequest(BaseModel):
 
 
 class DishCard(BaseModel):
-    id: str
+    id: str = ""
     name: str
     cuisine: str = ""
     minutes: int = 0
@@ -75,10 +86,17 @@ class DishCard(BaseModel):
     have: list[str] = []
     nice_to_add: list[str] = []
 
+    _ints = field_validator("minutes", "serves", mode="before")(_loose_int)
+
 
 class RecipeIngredient(BaseModel):
-    item: str
+    item: str = ""
     amount: str = ""
+
+    @field_validator("item", "amount", mode="before")
+    @classmethod
+    def _stringify(cls, v):
+        return "" if v is None else str(v)
 
 
 class Recipe(BaseModel):
@@ -88,6 +106,15 @@ class Recipe(BaseModel):
     serves: int = 0
     ingredients: list[RecipeIngredient] = []
     steps: list[str] = []
+
+    _ints = field_validator("minutes", "serves", mode="before")(_loose_int)
+
+    @field_validator("ingredients", mode="before")
+    @classmethod
+    def _wrap_plain_strings(cls, v):
+        if isinstance(v, list):
+            return [{"item": i} if isinstance(i, str) else i for i in v]
+        return v
 
 
 class ChatReply(BaseModel):

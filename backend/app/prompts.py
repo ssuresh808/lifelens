@@ -82,7 +82,10 @@ Respond with ONLY a JSON object, no markdown fences, no preamble:
 }
 "dishes" only when presenting a menu of dish ideas, otherwise [].
 "recipe" only when giving one full recipe, otherwise null.
-"sources" must be [] unless you actually searched the web."""
+"sources" must be [] unless you actually searched the web.
+"message" is always required and never empty.
+Numbers ("minutes", "serves") must be bare integers, never strings.
+Inside every JSON string escape newlines as \\n and double quotes as \\"."""
 
 TAB_BRIEFS: dict[str, str] = {
     "cook": """Your job in this tab: turn whatever is in the user's kitchen into dinner.

@@ -9,6 +9,7 @@ import binascii
 import json
 import logging
 import os
+import re
 import time
 from collections import defaultdict
 
@@ -90,6 +91,41 @@ def _extract_json(text: str) -> str:
     Returns "" if no JSON object is found."""
     start, end = text.find("{"), text.rfind("}")
     return text[start : end + 1] if start != -1 and end > start else ""
+
+
+def _salvage_chat_reply(text: str) -> ChatReply:
+    """Berry's words must reach the user even when his JSON wrapper is mangled.
+
+    Tries, in order: full parse, trailing-comma repair, message-only from the
+    parsed dict, regex extraction of the message string, and finally the raw
+    text itself. Only an empty reply is an error."""
+    clean = _extract_json(text)
+    for candidate in (clean, re.sub(r",\s*([}\]])", r"\1", clean)) if clean else ():
+        try:
+            data = json.loads(candidate, strict=False)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            break
+        try:
+            return ChatReply(**data)
+        except (TypeError, ValueError):
+            msg = data.get("message")
+            if isinstance(msg, str) and msg.strip():
+                logger.warning("Chat reply salvaged to message only | raw: %s", candidate[:800])
+                return ChatReply(message=msg.strip())
+            break
+    m = re.search(r'"message"\s*:\s*"((?:[^"\\]|\\.)*)"', clean or text)
+    if m:
+        msg = m.group(1).replace('\\"', '"').replace("\\n", "\n").strip()
+        if msg:
+            logger.warning("Chat reply message regex-salvaged | raw: %s", (clean or text)[:800])
+            return ChatReply(message=msg)
+    fallback = text.strip()
+    if fallback:
+        logger.warning("Chat reply used as plain text | raw: %s", text[:800])
+        return ChatReply(message=fallback)
+    raise HTTPException(502, "Berry got tongue-tied. Please send that again.")
 
 
 @app.post("/scan", response_model=ScanResult)
@@ -201,10 +237,4 @@ async def chat(req: ChatRequest, request: Request) -> ChatReply:
         payload["tools"] = [{"type": "web_search_20250305", "name": "web_search"}]
 
     text = await _complete(payload, api_key)
-    clean = _extract_json(text)
-
-    try:
-        return ChatReply(**json.loads(clean, strict=False))
-    except (json.JSONDecodeError, TypeError, ValueError) as exc:
-        logger.error("Chat parse failure: %s | raw: %s", exc, clean[:300])
-        raise HTTPException(502, "Berry got tongue-tied. Please send that again.")
+    return _salvage_chat_reply(text)
