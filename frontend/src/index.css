@@ -120,12 +120,16 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--primary)
 .histlist { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 40; }
 .histpanel { position: absolute; top: 0; right: 0; bottom: 0; width: 290px;
   background: var(--card); padding: 16px; overflow-y: auto; }
-.hist { display: flex; gap: 8px; align-items: center; width: 100%; background: none;
-  border: none; color: var(--text); border-radius: 9px; padding: 9px; font-size: 13.5px;
-  text-align: left; }
+.hist { display: flex; align-items: center; width: 100%; border-radius: 9px; }
 .hist:hover { background: var(--bg); }
+.hist-open { flex: 1; min-width: 0; display: flex; gap: 8px; align-items: center;
+  background: none; border: none; color: var(--text); border-radius: 9px; padding: 9px;
+  font-size: 13.5px; text-align: left; }
 .hist .t { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hist .d { font-size: 11px; color: var(--muted); }
+.hist-x { background: none; border: none; color: var(--muted); font-size: 16px;
+  line-height: 1; padding: 6px 9px; border-radius: 6px; opacity: .6; flex: 0 0 auto; }
+.hist-x:hover { opacity: 1; color: var(--danger); }
 .newchat { width: 100%; border: 1.5px dashed var(--accent); color: var(--primary);
   background: none; border-radius: 11px; padding: 9px; font-size: 13px; font-weight: 700;
   margin-bottom: 10px; }

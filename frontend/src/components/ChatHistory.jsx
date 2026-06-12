@@ -1,4 +1,5 @@
-import { listChats } from "../storage.js";
+import { useState } from "react";
+import { deleteChat, listChats } from "../storage.js";
 
 function ago(ts) {
   const s = (Date.now() - ts) / 1000;
@@ -10,7 +11,12 @@ function ago(ts) {
 }
 
 export function ChatList({ onOpen, onNew }) {
+  const [, setBump] = useState(0);
   const chats = listChats();
+  const remove = (id) => {
+    deleteChat(id);
+    setBump((b) => b + 1);
+  };
   return (
     <>
       <button className="newchat" onClick={onNew}>＋ New chat</button>
@@ -19,11 +25,15 @@ export function ChatList({ onOpen, onNew }) {
       </div>
       {chats.length === 0 && <div style={{ fontSize: 12.5, color: "var(--muted)", padding: 6 }}>No chats yet.</div>}
       {chats.map((c) => (
-        <button key={c.id} className="hist" onClick={() => onOpen(c)}>
-          <span>{c.tab === "cook" ? "🍳" : "💬"}</span>
-          <span className="t">{c.title || "New chat"}</span>
-          <span className="d">{ago(c.updatedAt)}</span>
-        </button>
+        <div key={c.id} className="hist">
+          <button className="hist-open" onClick={() => onOpen(c)}>
+            <span>{c.tab === "cook" ? "🍳" : "💬"}</span>
+            <span className="t">{c.title || "New chat"}</span>
+            <span className="d">{ago(c.updatedAt)}</span>
+          </button>
+          <button className="hist-x" aria-label={`Delete chat: ${c.title || "New chat"}`}
+            title="Delete chat" onClick={() => remove(c.id)}>×</button>
+        </div>
       ))}
     </>
   );

@@ -39,6 +39,10 @@ export function saveChat(chat) {
   write(CHATS_KEY, chats.slice(0, MAX_CHATS));
 }
 
+export function deleteChat(id) {
+  write(CHATS_KEY, listChats().filter((c) => c.id !== id));
+}
+
 export function clearChats() {
   write(CHATS_KEY, []);
 }
