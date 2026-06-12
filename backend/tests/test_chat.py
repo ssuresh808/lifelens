@@ -173,7 +173,8 @@ def test_chat_rejects_assistant_first():
     assert r.status_code == 422
 
 
-def test_chat_drops_empty_assistant_turns(monkeypatch):
+def test_chat_preserves_role_alternation(monkeypatch):
+    """A blank assistant turn must become '...' so roles stay alternating."""
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     captured = {}
 
@@ -188,7 +189,11 @@ def test_chat_drops_empty_assistant_turns(monkeypatch):
         {"role": "user", "text": "still there?"},
     ]})
     assert r.status_code == 200
-    assert [m["role"] for m in captured["messages"]] == ["user", "user"]
+    roles = [m["role"] for m in captured["messages"]]
+    assert roles == ["user", "assistant", "user"]
+    # blank assistant turn must carry the placeholder text, not empty
+    asst_content = captured["messages"][1]["content"]
+    assert any(b.get("text") == "..." for b in asst_content)
 
 
 def test_chat_payload_shape_and_web_search_tool(monkeypatch):

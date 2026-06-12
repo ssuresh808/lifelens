@@ -174,12 +174,15 @@ async def chat(req: ChatRequest, request: Request) -> ChatReply:
                 "type": "image",
                 "source": {"type": "base64", "media_type": m.media_type, "data": m.image_base64},
             })
-        if m.text.strip():
-            content.append({"type": "text", "text": m.text.strip()})
+        text_body = m.text.strip()
+        if text_body:
+            content.append({"type": "text", "text": text_body})
         if not content:
             if m.role == "assistant":
-                continue  # a blank assistant turn adds nothing; drop it
-            raise HTTPException(400, "A message needs text or an image.")
+                # preserve role alternation; use placeholder rather than dropping
+                content.append({"type": "text", "text": "..."})
+            else:
+                raise HTTPException(400, "A message needs text or an image.")
         messages.append({"role": m.role, "content": content})
 
     payload = {
