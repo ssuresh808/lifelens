@@ -33,6 +33,15 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
   const [prefs, setPrefs] = useState({ time: null, serves: null });
   const fileRef = useRef(null);
   const endRef = useRef(null);
+  const taRef = useRef(null);
+
+  // Grow the input with its content instead of scrolling inside a one-line box.
+  const autogrow = () => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 132) + "px";
+  };
 
   useEffect(() => { setWeb(webDefault); }, [webDefault]);
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [chat.messages, busy]);
@@ -77,6 +86,7 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
     saveChat(updated);
     setInput("");
     setImage(null);
+    if (taRef.current) taRef.current.style.height = "auto";
     setBusy(true);
     try {
       const reply = await sendChat({ tab, webSearch: web, messages, context });
@@ -140,7 +150,9 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
         {busy && (
           <div className="row">
             <BerryAvatar variant={variant} mood="thinking" />
-            <div className="bubble-bot">…</div>
+            <div className="bubble-bot">
+              <span className="dots" aria-label="Berry is thinking"><span /><span /><span /></span>
+            </div>
           </div>
         )}
         {error && (
@@ -154,10 +166,11 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
         <button className="ibtn" title="Attach a photo" onClick={() => fileRef.current?.click()}>📷</button>
         {image && <img src={image.dataUrl} alt="" style={{ height: 34, borderRadius: 8 }} />}
         <textarea
+          ref={taRef}
           rows={1}
           value={input}
           placeholder={tab === "cook" ? "List ingredients or snap your fridge…" : "Ask Berry anything…"}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => { setInput(e.target.value); autogrow(); }}
           onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
         />
         <button className={`ibtn ${web ? "on" : ""}`} title="Search online" onClick={() => setWeb((w) => !w)}>🌐</button>
