@@ -91,9 +91,13 @@ def test_cook_prompt_covers_the_flow():
 
 def test_ask_prompt_covers_goal_and_steps():
     p = build_chat_prompt("ask")
-    assert "goal" in p and "steps" in p.lower()
+    assert "goal" in p and "numbered steps" in p.lower()
 
 
 def test_chat_web_search_clause_only_when_enabled():
     assert "web_search" in build_chat_prompt("ask", web_search=True)
     assert "web_search" not in build_chat_prompt("ask", web_search=False)
+
+
+def test_unknown_tab_falls_back_to_ask():
+    assert build_chat_prompt("garden") == build_chat_prompt("ask")
