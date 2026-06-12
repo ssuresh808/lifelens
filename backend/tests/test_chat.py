@@ -5,6 +5,7 @@ import base64
 import pytest
 
 from app.models import ChatMessage, ChatReply, ChatRequest
+from app.prompts import build_chat_prompt
 
 FAKE_IMG = base64.b64encode(b"x" * 200).decode()
 
@@ -71,3 +72,28 @@ def test_chat_reply_round_trip_with_dishes_and_recipe():
     )
     assert reply.dishes[0].minutes == 25
     assert reply.recipe.steps == ["Marinate the chicken."]
+
+
+def test_chat_prompt_has_persona_contract_and_safety():
+    for tab in ("cook", "ask"):
+        p = build_chat_prompt(tab)
+        assert "Berry" in p
+        assert '"message"' in p            # JSON contract present
+        assert "never use em dashes" in p.lower()
+        assert "refuse" in p.lower()       # safety section present
+
+
+def test_cook_prompt_covers_the_flow():
+    p = build_chat_prompt("cook")
+    for needle in ("spices", "5 to 10", "cuisine", "serves", "feasible"):
+        assert needle in p, needle
+
+
+def test_ask_prompt_covers_goal_and_steps():
+    p = build_chat_prompt("ask")
+    assert "goal" in p and "steps" in p.lower()
+
+
+def test_chat_web_search_clause_only_when_enabled():
+    assert "web_search" in build_chat_prompt("ask", web_search=True)
+    assert "web_search" not in build_chat_prompt("ask", web_search=False)
