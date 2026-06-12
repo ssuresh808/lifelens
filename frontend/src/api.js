@@ -18,23 +18,20 @@ export async function scanImage({ mode, mediaType, base64, note = "", webSearch 
   return res.json();
 }
 
-/** Derive wire text from an assistant message's stored reply object. */
+/** Derive wire text from an assistant message's stored reply object.
+ * Replays the exact JSON Berry produced (minus empty fields): prose summaries
+ * like "Recipe given: X" taught the model to answer with summaries instead of
+ * filling the recipe field. */
 function assistantWireText(m) {
   if (m.text) return m.text;
   const r = m.reply;
   if (!r) return "...";
-  const parts = [];
-  if (r.message) parts.push(r.message);
-  if (r.dishes?.length) {
-    parts.push(
-      "Dishes offered: " +
-        r.dishes
-          .map((d) => `${d.name} (${d.cuisine}, ${d.minutes}min, serves ${d.serves})`)
-          .join("; ")
-    );
+  const compact = {};
+  for (const [k, v] of Object.entries(r)) {
+    if (v == null || v === "" || (Array.isArray(v) && v.length === 0)) continue;
+    compact[k] = v;
   }
-  if (r.recipe) parts.push(`Recipe given: ${r.recipe.name}`);
-  return parts.join("\n") || "...";
+  return Object.keys(compact).length ? JSON.stringify(compact) : "...";
 }
 
 /** Send a Cook/Ask conversation turn. messages: [{role, text, image?}] where

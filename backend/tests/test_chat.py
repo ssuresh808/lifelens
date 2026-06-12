@@ -122,6 +122,13 @@ def test_ask_prompt_covers_goal_and_steps():
     assert "goal" in p and "numbered steps" in p.lower()
 
 
+def test_chat_prompt_forbids_prose_summaries_of_content():
+    for tab in ("cook", "ask"):
+        p = build_chat_prompt(tab)
+        assert "Recipe given" in p          # the anti-pattern is named
+        assert "resend it in full" in p     # recovery rule present
+
+
 def test_chat_web_search_clause_only_when_enabled():
     assert "web_search" in build_chat_prompt("ask", web_search=True)
     assert "web_search" not in build_chat_prompt("ask", web_search=False)

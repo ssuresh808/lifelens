@@ -85,7 +85,12 @@ Respond with ONLY a JSON object, no markdown fences, no preamble:
 "sources" must be [] unless you actually searched the web.
 "message" is always required and never empty.
 Numbers ("minutes", "serves") must be bare integers, never strings.
-Inside every JSON string escape newlines as \\n and double quotes as \\"."""
+Inside every JSON string escape newlines as \\n and double quotes as \\".
+Every reply is this JSON object, even deep into a conversation. Never answer
+with a prose summary of what you made (like "Recipe given: X"); put the real
+content in the fields. There is no separate recipe panel: a recipe the user
+cannot see in "recipe" does not exist. If they say they cannot see a recipe
+or menu, resend it in full inside "recipe" or "dishes"."""
 
 TAB_BRIEFS: dict[str, str] = {
     "cook": """Your job in this tab: turn whatever is in the user's kitchen into dinner.
