@@ -120,3 +120,35 @@ def test_result_accepts_sources():
         sources=[{"title": "Official site", "url": "https://example.org"}],
     )
     assert r.sources[0].url.startswith("https")
+
+
+def test_extract_json_strips_fences_and_preamble():
+    from app.main import _extract_json
+
+    assert _extract_json('```json\n{"a": 1}\n```') == '{"a": 1}'
+    assert _extract_json('Sure! Here you go: {"a": 1}') == '{"a": 1}'
+
+
+def test_extract_json_returns_empty_when_no_json():
+    from app.main import _extract_json
+
+    assert _extract_json("no braces here") == ""
+    assert _extract_json("}{") == ""
+
+
+def test_scan_returns_502_when_upstream_non_200(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+
+    class _Resp:
+        status_code = 503
+        text = "overloaded"
+
+    async def post(self, *args, **kwargs):
+        return _Resp()
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    r = client.post(
+        "/scan",
+        json={"mode": "auto", "media_type": "image/jpeg", "image_base64": FAKE_IMG},
+    )
+    assert r.status_code == 502

@@ -70,11 +70,11 @@ async def _complete(payload: dict, api_key: str) -> str:
     except (httpx.HTTPError, OSError) as exc:
         # OSError covers ssl.SSLError, which httpx can leak unwrapped
         logger.error("Upstream connection failed: %r", exc)
-        raise HTTPException(502, "Could not reach the vision model. Please try again.")
+        raise HTTPException(502, "Could not reach the AI model. Please try again.")
 
     if resp.status_code != 200:
         logger.error("Upstream error %s: %s", resp.status_code, resp.text[:500])
-        raise HTTPException(502, "The vision model is unavailable right now.")
+        raise HTTPException(502, "The AI model is unavailable right now.")
 
     return "".join(
         block.get("text", "")
@@ -84,7 +84,9 @@ async def _complete(payload: dict, api_key: str) -> str:
 
 
 def _extract_json(text: str) -> str:
-    """The model occasionally wraps JSON in fences or adds preamble."""
+    """The model occasionally wraps JSON in fences or adds preamble.
+
+    Returns "" if no JSON object is found."""
     start, end = text.find("{"), text.rfind("}")
     return text[start : end + 1] if start != -1 and end > start else ""
 
