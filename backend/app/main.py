@@ -160,7 +160,7 @@ async def chat(req: ChatRequest, request: Request) -> ChatReply:
     if not api_key:
         raise HTTPException(500, "Server is missing ANTHROPIC_API_KEY.")
 
-    messages = []
+    messages: list[dict] = []
     for m in req.messages:
         content: list[dict] = []
         if m.image_base64:
@@ -177,6 +177,8 @@ async def chat(req: ChatRequest, request: Request) -> ChatReply:
         if m.text.strip():
             content.append({"type": "text", "text": m.text.strip()})
         if not content:
+            if m.role == "assistant":
+                continue  # a blank assistant turn adds nothing; drop it
             raise HTTPException(400, "A message needs text or an image.")
         messages.append({"role": m.role, "content": content})
 

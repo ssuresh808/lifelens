@@ -59,6 +59,8 @@ class ChatRequest(BaseModel):
     messages: list[ChatMessage] = Field(min_length=1, max_length=30)
 
     def model_post_init(self, __context) -> None:
+        if self.messages[0].role != "user":
+            raise ValueError("the first message must be from the user")
         if sum(1 for m in self.messages if m.image_base64 is not None) > 2:
             raise ValueError("at most 2 images per request")
 

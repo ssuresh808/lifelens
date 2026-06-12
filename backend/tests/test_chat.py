@@ -166,3 +166,67 @@ def test_chat_rejects_oversized_image(monkeypatch):
     r = client.post("/chat", json={"messages": [
         {"role": "user", "text": "x", "image_base64": big, "media_type": "image/jpeg"}]})
     assert r.status_code == 413
+
+
+def test_chat_rejects_assistant_first():
+    r = client.post("/chat", json={"messages": [{"role": "assistant", "text": "hi"}]})
+    assert r.status_code == 422
+
+
+def test_chat_drops_empty_assistant_turns(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    captured = {}
+
+    async def post(self, url, json=None, headers=None):
+        captured.update(json)
+        return _FakeResp(jsonlib.dumps({"message": "ok"}))
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    r = client.post("/chat", json={"messages": [
+        {"role": "user", "text": "hi"},
+        {"role": "assistant", "text": ""},
+        {"role": "user", "text": "still there?"},
+    ]})
+    assert r.status_code == 200
+    assert [m["role"] for m in captured["messages"]] == ["user", "user"]
+
+
+def test_chat_payload_shape_and_web_search_tool(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    captured = {}
+
+    async def post(self, url, json=None, headers=None):
+        captured.update(json)
+        return _FakeResp(jsonlib.dumps({"message": "ok"}))
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    r = client.post("/chat", json={"tab": "cook", "web_search": True,
+                                   "messages": [{"role": "user", "text": "dinner ideas"}]})
+    assert r.status_code == 200
+    assert "Berry" in captured["system"]
+    assert captured["messages"][0]["role"] == "user"
+    assert captured["messages"][0]["content"][0] == {"type": "text", "text": "dinner ideas"}
+    assert captured["tools"] == [{"type": "web_search_20250305", "name": "web_search"}]
+
+
+def test_chat_parses_reply_that_follows_tool_use_blocks(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+
+    class _ToolResp:
+        status_code = 200
+
+        def json(self):
+            return {"content": [
+                {"type": "server_tool_use", "name": "web_search", "input": {}},
+                {"type": "text", "text": jsonlib.dumps({"message": "found it", "sources": [
+                    {"title": "x", "url": "https://example.org"}]})},
+            ]}
+
+    async def post(self, *args, **kwargs):
+        return _ToolResp()
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    r = client.post("/chat", json={"web_search": True,
+                                   "messages": [{"role": "user", "text": "look this up"}]})
+    assert r.status_code == 200
+    assert r.json()["sources"][0]["url"] == "https://example.org"
