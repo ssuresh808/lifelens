@@ -10,9 +10,18 @@ const OPENERS = {
   ask: "Hi, I'm Berry 👋 Ask me anything: paperwork, plans, repairs, decisions. Attach a photo if it helps.",
 };
 
-const STARTER_CHIPS = {
-  cook: ["⚡ Quick, under 30 min", "🍲 Take your time", "👤 Just me", "👥 For two", "👨‍👩‍👧 Family"],
-  ask: [],
+// Tappable meal preferences (cook tab). Selecting highlights the chip; nothing
+// is typed into the input. The choice rides along invisibly with the next send.
+const COOK_PREFS = {
+  time: [
+    { id: "quick", label: "⚡ Quick, under 30 min", note: "a quick meal, under 30 minutes" },
+    { id: "slow", label: "🍲 Take your time", note: "no rush, happy to take our time" },
+  ],
+  serves: [
+    { id: "solo", label: "👤 Just me", note: "cooking for one" },
+    { id: "two", label: "👥 For two", note: "cooking for two" },
+    { id: "family", label: "👨‍👩‍👧 Family", note: "cooking for the family, four or more" },
+  ],
 };
 
 export default function ChatView({ tab, chat, setChat, variant, webDefault, tipsOnStart = true }) {
@@ -21,6 +30,7 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
   const [web, setWeb] = useState(webDefault);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [prefs, setPrefs] = useState({ time: null, serves: null });
   const fileRef = useRef(null);
   const endRef = useRef(null);
 
@@ -36,20 +46,40 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
+  const togglePref = (group, id) =>
+    setPrefs((p) => ({ ...p, [group]: p[group] === id ? null : id }));
+
+  const selectedPrefs = () =>
+    Object.entries(COOK_PREFS)
+      .map(([group, opts]) => opts.find((o) => o.id === prefs[group]))
+      .filter(Boolean);
+
+  // Berry sees the tapped chips as a bracketed note on the outgoing message;
+  // the chat transcript and input bar stay clean.
+  const prefContext = () => {
+    const sel = selectedPrefs();
+    return tab === "cook" && sel.length
+      ? `[Meal preferences selected in the app: ${sel.map((o) => o.note).join("; ")}]`
+      : "";
+  };
+
   const send = async (text) => {
     const body = (text ?? input).trim();
-    if ((!body && !image) || busy) return;
+    const context = prefContext();
+    if ((!body && !image && !context) || busy) return;
     setError("");
-    const userMsg = { role: "user", text: body, image };
+    // Sending chips alone still shows something human in the transcript.
+    const shown = body || (image ? "" : selectedPrefs().map((o) => o.label).join(" · "));
+    const userMsg = { role: "user", text: shown, image };
     const messages = [...chat.messages, userMsg];
-    const updated = { ...chat, title: chat.title || titleFrom(body || "📷 photo"), messages };
+    const updated = { ...chat, title: chat.title || titleFrom(shown || "📷 photo"), messages };
     setChat(updated);
     saveChat(updated);
     setInput("");
     setImage(null);
     setBusy(true);
     try {
-      const reply = await sendChat({ tab, webSearch: web, messages });
+      const reply = await sendChat({ tab, webSearch: web, messages, context });
       const done = { ...updated, messages: [...messages, { role: "assistant", reply }] };
       setChat(done);
       saveChat(done);
@@ -68,7 +98,7 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
     setError("");
     setBusy(true);
     try {
-      const reply = await sendChat({ tab, webSearch: web, messages: chat.messages });
+      const reply = await sendChat({ tab, webSearch: web, messages: chat.messages, context: prefContext() });
       const done = { ...chat, messages: [...chat.messages, { role: "assistant", reply }] };
       setChat(done);
       saveChat(done);
@@ -88,13 +118,6 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
             <div className="bubble-bot">{OPENERS[tab]}</div>
           </div>
         )}
-        {tipsOnStart && chat.messages.length === 0 && STARTER_CHIPS[tab].length > 0 && (
-          <div className="chips">
-            {STARTER_CHIPS[tab].map((c, i) => (
-              <button key={i} className="chip" onClick={() => setInput((v) => (v ? v + ", " + c : c))}>{c}</button>
-            ))}
-          </div>
-        )}
         {chat.messages.map((m, i) => (
           <Message key={i} m={m} variant={variant} onChip={send} onPickDish={pickDish} />
         ))}
@@ -111,6 +134,22 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
         )}
         <div ref={endRef} />
       </div>
+      {tab === "cook" && (
+        <div className="prefbar">
+          {Object.entries(COOK_PREFS).map(([group, opts]) =>
+            opts.map((o) => (
+              <button
+                key={o.id}
+                className={`chip ${prefs[group] === o.id ? "on" : ""}`}
+                aria-pressed={prefs[group] === o.id}
+                onClick={() => togglePref(group, o.id)}
+              >
+                {o.label}
+              </button>
+            ))
+          )}
+        </div>
+      )}
       <div className="inputbar">
         <button className="ibtn" title="Attach a photo" onClick={() => fileRef.current?.click()}>📷</button>
         {image && <img src={image.dataUrl} alt="" style={{ height: 34, borderRadius: 8 }} />}

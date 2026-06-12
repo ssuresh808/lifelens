@@ -111,6 +111,12 @@ def test_cook_prompt_covers_the_flow():
         assert needle in p, needle
 
 
+def test_cook_prompt_explains_tapped_preferences():
+    p = build_chat_prompt("cook")
+    assert "Meal preferences selected in the app" in p
+    assert "never ask again" in p
+
+
 def test_ask_prompt_covers_goal_and_steps():
     p = build_chat_prompt("ask")
     assert "goal" in p and "numbered steps" in p.lower()

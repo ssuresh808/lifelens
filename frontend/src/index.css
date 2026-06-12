@@ -51,6 +51,9 @@ button:focus-visible, textarea:focus-visible { outline: 2px solid var(--primary)
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: 46px; }
 .chip { background: var(--chip-bg); border: 1px solid var(--chip-border);
   border-radius: 999px; padding: 6px 12px; font-size: 12.5px; color: var(--text); }
+.chip.on { background: var(--primary); color: #fff; border-color: var(--primary);
+  font-weight: 700; }
+.prefbar { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 8px; }
 .dish { background: var(--card); border: none; text-align: left; width: 100%;
   border-radius: 12px; padding: 10px 12px; box-shadow: var(--shadow); margin-left: 46px;
   max-width: calc(86% - 46px); }

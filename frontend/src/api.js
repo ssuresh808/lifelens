@@ -38,8 +38,10 @@ function assistantWireText(m) {
 }
 
 /** Send a Cook/Ask conversation turn. messages: [{role, text, image?}] where
- * image = {base64, mediaType}. Only the 2 most recent images are sent. */
-export async function sendChat({ tab, webSearch, messages }) {
+ * image = {base64, mediaType}. Only the 2 most recent images are sent.
+ * context: optional app-state note (e.g. tapped meal preferences) appended to
+ * the outgoing copy of the latest user message, never stored or displayed. */
+export async function sendChat({ tab, webSearch, messages, context = "" }) {
   // cap at 30, then drop any leading assistant turns so first role is always user
   let recent = messages.slice(-30);
   while (recent.length > 0 && recent[0].role === "assistant") recent = recent.slice(1);
@@ -54,6 +56,10 @@ export async function sendChat({ tab, webSearch, messages }) {
       wire[i].media_type = recent[i].image.mediaType;
       imagesLeft--;
     }
+  }
+  const last = wire[wire.length - 1];
+  if (context && last?.role === "user") {
+    last.text = last.text ? `${last.text}\n\n${context}` : context;
   }
   const res = await fetch("/chat", {
     method: "POST",
