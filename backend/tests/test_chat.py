@@ -141,6 +141,39 @@ def test_chat_happy_path(monkeypatch):
     assert data["message"].startswith("Hi!") and data["dishes"] == [] and data["recipe"] is None
 
 
+def test_chat_merges_consecutive_same_role_messages(monkeypatch):
+    from app.main import _hits
+    _hits.clear()
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    seen = {}
+    body = jsonlib.dumps({"message": "ok"})
+
+    async def post(self, url, json=None, headers=None):
+        seen["payload"] = json
+        return _FakeResp(body)
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", post)
+    r = client.post("/chat", json={"messages": [
+        {"role": "user", "text": "full recipe for tacos"},
+        {"role": "user", "text": "full recipe for tofu tacos"},
+    ]})
+    assert r.status_code == 200
+    roles = [m["role"] for m in seen["payload"]["messages"]]
+    assert roles == ["user"]
+    texts = [b["text"] for b in seen["payload"]["messages"][0]["content"]]
+    assert texts == ["full recipe for tacos", "full recipe for tofu tacos"]
+
+
+def test_chat_tolerates_literal_newlines_in_strings(monkeypatch):
+    from app.main import _hits
+    _hits.clear()
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post('{"message": "line one\nline two"}'))
+    r = client.post("/chat", json={"messages": [{"role": "user", "text": "hi"}]})
+    assert r.status_code == 200
+    assert "line two" in r.json()["message"]
+
+
 def test_chat_unparseable_reply_is_502(monkeypatch):
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
     monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post("no json here"))

@@ -144,7 +144,8 @@ async def scan(req: ScanRequest, request: Request) -> ScanResult:
     clean = _extract_json(text)
 
     try:
-        return ScanResult(**json.loads(clean))
+        # strict=False tolerates literal newlines the model sometimes leaves in strings
+        return ScanResult(**json.loads(clean, strict=False))
     except (json.JSONDecodeError, TypeError, ValueError) as exc:
         logger.error("Schema parse failure: %s | raw: %s", exc, clean[:300])
         raise HTTPException(502, "The model returned an unreadable result. Please rescan.")
@@ -183,7 +184,12 @@ async def chat(req: ChatRequest, request: Request) -> ChatReply:
                 content.append({"type": "text", "text": "..."})
             else:
                 raise HTTPException(400, "A message needs text or an image.")
-        messages.append({"role": m.role, "content": content})
+        # After a failed turn the client may resend two user messages in a row;
+        # the model API requires alternating roles, so merge them.
+        if messages and messages[-1]["role"] == m.role:
+            messages[-1]["content"].extend(content)
+        else:
+            messages.append({"role": m.role, "content": content})
 
     payload = {
         "model": CHAT_MODEL,
@@ -198,7 +204,7 @@ async def chat(req: ChatRequest, request: Request) -> ChatReply:
     clean = _extract_json(text)
 
     try:
-        return ChatReply(**json.loads(clean))
+        return ChatReply(**json.loads(clean, strict=False))
     except (json.JSONDecodeError, TypeError, ValueError) as exc:
         logger.error("Chat parse failure: %s | raw: %s", exc, clean[:300])
         raise HTTPException(502, "Berry got tongue-tied. Please send that again.")
