@@ -72,7 +72,8 @@ export default function LifeLens() {
       <ScanView variant={variant} webDefault={settings.webSearchDefault} />
     ) : (
       <ChatView key={chats[tab].id} tab={tab} chat={chats[tab]} setChat={setChat}
-        variant={variant} webDefault={settings.webSearchDefault} />
+        variant={variant} webDefault={settings.webSearchDefault}
+        tipsOnStart={settings.tipsOnStart} />
     );
 
   return (

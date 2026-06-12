@@ -39,10 +39,6 @@ export function saveChat(chat) {
   write(CHATS_KEY, chats.slice(0, MAX_CHATS));
 }
 
-export function getChat(id) {
-  return listChats().find((c) => c.id === id) || null;
-}
-
 export function clearChats() {
   write(CHATS_KEY, []);
 }

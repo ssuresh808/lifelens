@@ -15,7 +15,7 @@ const STARTER_CHIPS = {
   ask: [],
 };
 
-export default function ChatView({ tab, chat, setChat, variant, webDefault }) {
+export default function ChatView({ tab, chat, setChat, variant, webDefault, tipsOnStart = true }) {
   const [input, setInput] = useState("");
   const [image, setImage] = useState(null);
   const [web, setWeb] = useState(webDefault);
@@ -82,11 +82,13 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault }) {
   return (
     <>
       <div className="chat-scroll">
-        <div className="row">
-          <BerryAvatar variant={variant} />
-          <div className="bubble-bot">{OPENERS[tab]}</div>
-        </div>
-        {chat.messages.length === 0 && STARTER_CHIPS[tab].length > 0 && (
+        {tipsOnStart && (
+          <div className="row">
+            <BerryAvatar variant={variant} />
+            <div className="bubble-bot">{OPENERS[tab]}</div>
+          </div>
+        )}
+        {tipsOnStart && chat.messages.length === 0 && STARTER_CHIPS[tab].length > 0 && (
           <div className="chips">
             {STARTER_CHIPS[tab].map((c, i) => (
               <button key={i} className="chip" onClick={() => setInput((v) => (v ? v + ", " + c : c))}>{c}</button>

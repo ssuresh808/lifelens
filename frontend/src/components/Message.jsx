@@ -21,11 +21,15 @@ export default function Message({ m, variant, onChip, onPickDish }) {
           {r.goal && <div className="goal">🎯 {r.goal}</div>}
           {r.sources?.length > 0 && (
             <div>
-              {r.sources.map((s, i) => (
-                <a key={i} className="srclink" href={s.url} target="_blank" rel="noreferrer">
-                  🔗 {s.title || s.url} ↗
-                </a>
-              ))}
+              {r.sources.map((s, i) =>
+                /^https?:\/\//i.test(s.url) ? (
+                  <a key={i} className="srclink" href={s.url} target="_blank" rel="noreferrer">
+                    🔗 {s.title || s.url} ↗
+                  </a>
+                ) : (
+                  <span key={i} className="srclink">🔗 {s.title || s.url}</span>
+                )
+              )}
             </div>
           )}
         </div>

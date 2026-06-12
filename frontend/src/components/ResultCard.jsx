@@ -17,11 +17,15 @@ export default function ResultCard({ result }) {
       {result.warnings?.map((w, i) => <p key={i} className="warn">{w}</p>)}
       {result.sources?.length > 0 && (
         <div>
-          {result.sources.map((s, i) => (
-            <a key={i} className="srclink" href={s.url} target="_blank" rel="noreferrer">
-              🔗 {s.title || s.url} ↗
-            </a>
-          ))}
+          {result.sources.map((s, i) =>
+            /^https?:\/\//i.test(s.url) ? (
+              <a key={i} className="srclink" href={s.url} target="_blank" rel="noreferrer">
+                🔗 {s.title || s.url} ↗
+              </a>
+            ) : (
+              <span key={i} className="srclink">🔗 {s.title || s.url}</span>
+            )
+          )}
         </div>
       )}
       {result.followUp?.length > 0 && (
