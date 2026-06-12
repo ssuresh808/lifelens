@@ -118,6 +118,22 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
             <div className="bubble-bot">{OPENERS[tab]}</div>
           </div>
         )}
+        {tab === "cook" && (
+          <div className="chips">
+            {Object.entries(COOK_PREFS).map(([group, opts]) =>
+              opts.map((o) => (
+                <button
+                  key={o.id}
+                  className={`chip ${prefs[group] === o.id ? "on" : ""}`}
+                  aria-pressed={prefs[group] === o.id}
+                  onClick={() => togglePref(group, o.id)}
+                >
+                  {o.label}
+                </button>
+              ))
+            )}
+          </div>
+        )}
         {chat.messages.map((m, i) => (
           <Message key={i} m={m} variant={variant} onChip={send} onPickDish={pickDish} />
         ))}
@@ -134,22 +150,6 @@ export default function ChatView({ tab, chat, setChat, variant, webDefault, tips
         )}
         <div ref={endRef} />
       </div>
-      {tab === "cook" && (
-        <div className="prefbar">
-          {Object.entries(COOK_PREFS).map(([group, opts]) =>
-            opts.map((o) => (
-              <button
-                key={o.id}
-                className={`chip ${prefs[group] === o.id ? "on" : ""}`}
-                aria-pressed={prefs[group] === o.id}
-                onClick={() => togglePref(group, o.id)}
-              >
-                {o.label}
-              </button>
-            ))
-          )}
-        </div>
-      )}
       <div className="inputbar">
         <button className="ibtn" title="Attach a photo" onClick={() => fileRef.current?.click()}>📷</button>
         {image && <img src={image.dataUrl} alt="" style={{ height: 34, borderRadius: 8 }} />}
