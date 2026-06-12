@@ -54,6 +54,41 @@ def health() -> dict:
     return {"status": "ok", "model": MODEL}
 
 
+async def _complete(payload: dict, api_key: str) -> str:
+    """POST to the model API; return the joined text blocks. Raises HTTPException."""
+    try:
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(
+                ANTHROPIC_URL,
+                json=payload,
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+            )
+    except (httpx.HTTPError, OSError) as exc:
+        # OSError covers ssl.SSLError, which httpx can leak unwrapped
+        logger.error("Upstream connection failed: %r", exc)
+        raise HTTPException(502, "Could not reach the vision model. Please try again.")
+
+    if resp.status_code != 200:
+        logger.error("Upstream error %s: %s", resp.status_code, resp.text[:500])
+        raise HTTPException(502, "The vision model is unavailable right now.")
+
+    return "".join(
+        block.get("text", "")
+        for block in resp.json().get("content", [])
+        if block.get("type") == "text"
+    )
+
+
+def _extract_json(text: str) -> str:
+    """The model occasionally wraps JSON in fences or adds preamble."""
+    start, end = text.find("{"), text.rfind("}")
+    return text[start : end + 1] if start != -1 and end > start else ""
+
+
 @app.post("/scan", response_model=ScanResult)
 async def scan(req: ScanRequest, request: Request) -> ScanResult:
     ip = request.client.host if request.client else "unknown"
@@ -102,35 +137,8 @@ async def scan(req: ScanRequest, request: Request) -> ScanResult:
     if req.web_search:
         payload["tools"] = [{"type": "web_search_20250305", "name": "web_search"}]
 
-    try:
-        async with httpx.AsyncClient(timeout=120) as client:
-            resp = await client.post(
-                ANTHROPIC_URL,
-                json=payload,
-                headers={
-                    "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json",
-                },
-            )
-    except (httpx.HTTPError, OSError) as exc:
-        # OSError covers ssl.SSLError, which httpx can leak unwrapped
-        logger.error("Upstream connection failed: %r", exc)
-        raise HTTPException(502, "Could not reach the vision model. Please try again.")
-
-    if resp.status_code != 200:
-        logger.error("Upstream error %s: %s", resp.status_code, resp.text[:500])
-        raise HTTPException(502, "The vision model is unavailable right now.")
-
-    text = "".join(
-        block.get("text", "")
-        for block in resp.json().get("content", [])
-        if block.get("type") == "text"
-    )
-    # The model occasionally wraps JSON in fences or adds preamble;
-    # take everything between the first '{' and the last '}'.
-    start, end = text.find("{"), text.rfind("}")
-    clean = text[start : end + 1] if start != -1 and end > start else ""
+    text = await _complete(payload, api_key)
+    clean = _extract_json(text)
 
     try:
         return ScanResult(**json.loads(clean))
