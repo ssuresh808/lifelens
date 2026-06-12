@@ -95,7 +95,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the full write-up, includin
 
 ## Built in public
 
-The entire build is journaled milestone-by-milestone in [docs/DEVLOG.md](docs/DEVLOG.md): what was built, why, and which real-world problem each change solved (including the bug where full-resolution phone photos silently exceeded the vision API's payload limit). The working discipline throughout: commit per achievement, devlog every milestone, push green. Deployment to a live public URL is documented in [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+The entire build is journaled milestone-by-milestone in [docs/DEVLOG.md](docs/DEVLOG.md): what was built, why, and which real-world problem each change solved (including the bug where full-resolution phone photos silently exceeded the vision API's payload limit). The working discipline throughout: commit per achievement, devlog every milestone, push green.
 
 ## License
 

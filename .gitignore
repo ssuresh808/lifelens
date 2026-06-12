@@ -6,3 +6,6 @@ __pycache__/
 .env
 .venv/
 .DS_Store
+
+# Internal deployment notes, kept out of the public repo
+docs/DEPLOYMENT.md
