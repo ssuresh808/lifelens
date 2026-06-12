@@ -1,10 +1,10 @@
 {
   "name": "LifeLens",
   "short_name": "LifeLens",
-  "description": "Point your camera at any real-world problem and get expert help.",
+  "description": "Ask Berry anything: recipes from your ingredients, photo scans, and help with any life task.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#161D1B",
-  "theme_color": "#161D1B",
+  "background_color": "#F3FAF7",
+  "theme_color": "#0EA5A0",
   "icons": []
 }
