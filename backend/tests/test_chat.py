@@ -1,13 +1,35 @@
 """Tests for the /chat contract and Berry prompts."""
 
 import base64
+import json as jsonlib
 
+import httpx
 import pytest
+from fastapi.testclient import TestClient
 
+from app.main import app
 from app.models import ChatMessage, ChatReply, ChatRequest
 from app.prompts import build_chat_prompt
 
 FAKE_IMG = base64.b64encode(b"x" * 200).decode()
+
+client = TestClient(app)
+
+
+class _FakeResp:
+    status_code = 200
+
+    def __init__(self, text):
+        self._text = text
+
+    def json(self):
+        return {"content": [{"type": "text", "text": self._text}]}
+
+
+def _fake_post(reply_text):
+    async def post(self, *args, **kwargs):
+        return _FakeResp(reply_text)
+    return post
 
 
 def test_chat_request_minimal():
@@ -101,3 +123,46 @@ def test_chat_web_search_clause_only_when_enabled():
 
 def test_unknown_tab_falls_back_to_ask():
     assert build_chat_prompt("garden") == build_chat_prompt("ask")
+
+
+def test_chat_happy_path(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    body = jsonlib.dumps({"message": "Hi! What's in your kitchen?", "chips": ["snap a photo"]})
+    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post(body))
+    r = client.post("/chat", json={"tab": "cook", "messages": [{"role": "user", "text": "hello"}]})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["message"].startswith("Hi!") and data["dishes"] == [] and data["recipe"] is None
+
+
+def test_chat_unparseable_reply_is_502(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    monkeypatch.setattr(httpx.AsyncClient, "post", _fake_post("no json here"))
+    r = client.post("/chat", json={"messages": [{"role": "user", "text": "hello"}]})
+    assert r.status_code == 502
+
+
+def test_chat_network_error_is_502(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+
+    async def boom(self, *args, **kwargs):
+        raise httpx.ConnectError("down")
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", boom)
+    r = client.post("/chat", json={"messages": [{"role": "user", "text": "hello"}]})
+    assert r.status_code == 502
+
+
+def test_chat_fails_clearly_without_api_key(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    r = client.post("/chat", json={"messages": [{"role": "user", "text": "hello"}]})
+    assert r.status_code == 500
+    assert "ANTHROPIC_API_KEY" in r.json()["detail"]
+
+
+def test_chat_rejects_oversized_image(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    big = base64.b64encode(b"x" * (6 * 1024 * 1024)).decode()
+    r = client.post("/chat", json={"messages": [
+        {"role": "user", "text": "x", "image_base64": big, "media_type": "image/jpeg"}]})
+    assert r.status_code == 413

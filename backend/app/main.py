@@ -16,14 +16,15 @@ import httpx
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from .models import ScanRequest, ScanResult
-from .prompts import build_system_prompt
+from .models import ChatReply, ChatRequest, ScanRequest, ScanResult
+from .prompts import build_chat_prompt, build_system_prompt
 
 logger = logging.getLogger("lifelens")
 logging.basicConfig(level=logging.INFO)
 
 ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 MODEL = os.getenv("LIFELENS_MODEL", "claude-sonnet-4-6")
+CHAT_MODEL = os.getenv("LIFELENS_CHAT_MODEL", "claude-opus-4-8")
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB decoded
 RATE_LIMIT = 20          # requests
 RATE_WINDOW = 60 * 60    # per hour, per client IP
@@ -147,3 +148,52 @@ async def scan(req: ScanRequest, request: Request) -> ScanResult:
     except (json.JSONDecodeError, TypeError, ValueError) as exc:
         logger.error("Schema parse failure: %s | raw: %s", exc, clean[:300])
         raise HTTPException(502, "The model returned an unreadable result. Please rescan.")
+
+
+@app.post("/chat", response_model=ChatReply)
+async def chat(req: ChatRequest, request: Request) -> ChatReply:
+    ip = request.client.host if request.client else "unknown"
+    if _rate_limited(ip):
+        raise HTTPException(429, "Rate limit reached. Try again in an hour.")
+
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise HTTPException(500, "Server is missing ANTHROPIC_API_KEY.")
+
+    messages = []
+    for m in req.messages:
+        content: list[dict] = []
+        if m.image_base64:
+            try:
+                raw = base64.b64decode(m.image_base64, validate=True)
+            except (binascii.Error, ValueError):
+                raise HTTPException(400, "image_base64 is not valid base64.")
+            if len(raw) > MAX_IMAGE_BYTES:
+                raise HTTPException(413, "Image exceeds the 5 MB limit.")
+            content.append({
+                "type": "image",
+                "source": {"type": "base64", "media_type": m.media_type, "data": m.image_base64},
+            })
+        if m.text.strip():
+            content.append({"type": "text", "text": m.text.strip()})
+        if not content:
+            raise HTTPException(400, "A message needs text or an image.")
+        messages.append({"role": m.role, "content": content})
+
+    payload = {
+        "model": CHAT_MODEL,
+        "max_tokens": 4096,
+        "system": build_chat_prompt(req.tab, req.web_search),
+        "messages": messages,
+    }
+    if req.web_search:
+        payload["tools"] = [{"type": "web_search_20250305", "name": "web_search"}]
+
+    text = await _complete(payload, api_key)
+    clean = _extract_json(text)
+
+    try:
+        return ChatReply(**json.loads(clean))
+    except (json.JSONDecodeError, TypeError, ValueError) as exc:
+        logger.error("Chat parse failure: %s | raw: %s", exc, clean[:300])
+        raise HTTPException(502, "Berry got tongue-tied. Please send that again.")
