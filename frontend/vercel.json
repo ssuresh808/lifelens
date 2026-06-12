@@ -1,5 +1,6 @@
 {
   "rewrites": [
-    { "source": "/scan", "destination": "https://lifelens-3y5q.onrender.com/scan" }
+    { "source": "/scan", "destination": "https://lifelens-3y5q.onrender.com/scan" },
+    { "source": "/chat", "destination": "https://lifelens-3y5q.onrender.com/chat" }
   ]
 }
