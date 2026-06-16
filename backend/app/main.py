@@ -8,6 +8,7 @@ import base64
 import binascii
 import json
 import logging
+import math
 import os
 import re
 import time
@@ -27,8 +28,13 @@ ANTHROPIC_URL = "https://api.anthropic.com/v1/messages"
 MODEL = os.getenv("LIFELENS_MODEL", "claude-sonnet-4-6")
 CHAT_MODEL = os.getenv("LIFELENS_CHAT_MODEL", "claude-opus-4-8")
 MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB decoded
-RATE_LIMIT = 20          # requests
-RATE_WINDOW = 60 * 60    # per hour, per client IP
+
+# Layered per-IP rate limits. The burst window catches rapid-fire abuse; the
+# longer window caps sustained use. Whichever trips first wins.
+RATE_LIMIT = int(os.getenv("LIFELENS_RATE_LIMIT", "20"))            # sustained requests
+RATE_WINDOW = int(os.getenv("LIFELENS_RATE_WINDOW", str(60 * 60)))  # per hour, per IP
+BURST_LIMIT = int(os.getenv("LIFELENS_BURST_LIMIT", "5"))           # burst requests
+BURST_WINDOW = int(os.getenv("LIFELENS_BURST_WINDOW", "60"))        # per minute, per IP
 
 app = FastAPI(title="LifeLens API", version="1.0.0")
 
@@ -42,13 +48,20 @@ app.add_middleware(
 _hits: dict[str, list[float]] = defaultdict(list)
 
 
-def _rate_limited(ip: str) -> bool:
+def _retry_after(ip: str) -> int:
+    """Seconds the caller must wait, or 0 if the request is allowed.
+
+    Records the hit only when the request is allowed, so a rejected caller is
+    not pushed further past the limit by their own retries."""
     now = time.time()
-    _hits[ip] = [t for t in _hits[ip] if now - t < RATE_WINDOW]
-    if len(_hits[ip]) >= RATE_LIMIT:
-        return True
-    _hits[ip].append(now)
-    return False
+    hits = _hits[ip] = [t for t in _hits[ip] if now - t < RATE_WINDOW]
+    if len(hits) >= RATE_LIMIT:
+        return math.ceil(RATE_WINDOW - (now - hits[0]))
+    recent = [t for t in hits if now - t < BURST_WINDOW]
+    if len(recent) >= BURST_LIMIT:
+        return math.ceil(BURST_WINDOW - (now - recent[0]))
+    hits.append(now)
+    return 0
 
 
 @app.get("/health")
@@ -131,8 +144,11 @@ def _salvage_chat_reply(text: str) -> ChatReply:
 @app.post("/scan", response_model=ScanResult)
 async def scan(req: ScanRequest, request: Request) -> ScanResult:
     ip = request.client.host if request.client else "unknown"
-    if _rate_limited(ip):
-        raise HTTPException(429, "Rate limit reached. Try again in an hour.")
+    wait = _retry_after(ip)
+    if wait:
+        raise HTTPException(
+            429, "Rate limit reached. Please slow down.", headers={"Retry-After": str(wait)}
+        )
 
     try:
         raw = base64.b64decode(req.image_base64, validate=True)
@@ -190,8 +206,11 @@ async def scan(req: ScanRequest, request: Request) -> ScanResult:
 @app.post("/chat", response_model=ChatReply)
 async def chat(req: ChatRequest, request: Request) -> ChatReply:
     ip = request.client.host if request.client else "unknown"
-    if _rate_limited(ip):
-        raise HTTPException(429, "Rate limit reached. Try again in an hour.")
+    wait = _retry_after(ip)
+    if wait:
+        raise HTTPException(
+            429, "Rate limit reached. Please slow down.", headers={"Retry-After": str(wait)}
+        )
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
