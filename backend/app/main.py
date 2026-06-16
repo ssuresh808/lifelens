@@ -106,9 +106,17 @@ def _spend_budget() -> None:
     _daily[datetime.now(timezone.utc).strftime("%Y-%m-%d")] += 1
 
 
+def _is_paused() -> bool:
+    """Maintenance kill switch, read at request time so it flips without a redeploy
+    beyond setting the env var. Set LIFELENS_PAUSED to 1/true/yes/on to pause."""
+    return os.getenv("LIFELENS_PAUSED", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _enforce_limits(request: Request) -> None:
-    """Reject the request if the daily budget is spent (503) or the caller is
-    rate limited (429). Both responses carry a Retry-After header."""
+    """Reject the request if the service is paused (503), the daily budget is
+    spent (503), or the caller is rate limited (429)."""
+    if _is_paused():
+        raise HTTPException(503, "LifeLens is paused for maintenance. Please check back soon.")
     wait = _budget_retry_after()
     if wait:
         raise HTTPException(
@@ -126,7 +134,7 @@ def _enforce_limits(request: Request) -> None:
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "model": MODEL}
+    return {"status": "ok", "model": MODEL, "paused": _is_paused()}
 
 
 async def _complete(payload: dict, api_key: str) -> str:

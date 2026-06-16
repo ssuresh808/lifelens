@@ -111,6 +111,33 @@ def test_security_headers_on_error_responses(fake_upstream):
     assert last.headers["X-Content-Type-Options"] == "nosniff"
 
 
+def test_paused_blocks_scan_with_503(fake_upstream, monkeypatch):
+    monkeypatch.setenv("LIFELENS_PAUSED", "1")
+    r = client.post("/scan", json=SCAN_BODY)
+    assert r.status_code == 503
+    assert "paused" in r.json()["detail"].lower()
+
+
+def test_paused_blocks_chat_before_anything_else(monkeypatch):
+    # No API key set: the pause must short-circuit before the key check.
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setenv("LIFELENS_PAUSED", "true")
+    r = client.post("/chat", json={"messages": [{"role": "user", "text": "hi"}]})
+    assert r.status_code == 503
+
+
+def test_health_reports_paused_state(monkeypatch):
+    monkeypatch.setenv("LIFELENS_PAUSED", "yes")
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert r.json().get("paused") is True
+
+
+def test_not_paused_by_default(fake_upstream):
+    r = client.post("/scan", json=SCAN_BODY)
+    assert r.status_code == 200
+
+
 def test_cors_allows_configured_origin():
     """The configured frontend origin is still permitted after tightening headers."""
     r = client.options(

@@ -48,6 +48,16 @@ checks stay cheap.
 
 All limits are tunable via environment variables (see `backend/.env.example`).
 
+### Pausing the service
+
+To take the API offline (incident response, maintenance, runaway cost), set
+`LIFELENS_PAUSED` to `1` on the host. `/scan` and `/chat` then return 503 and
+stop all upstream calls; `/health` stays up and reports `"paused": true`. Unset
+it to resume. The flag is read per request, so no code change is needed to flip
+it. This is a kill switch only; it does not stop direct traffic to the host if
+the host itself stays running, so for a hard stop also suspend the service in
+your platform dashboard.
+
 > Scaling note: the limiter and budget are in-memory and per-process. That is
 > correct on a single instance (the current Render deployment). If you scale to
 > multiple instances, move this state to a shared store such as Redis so the
