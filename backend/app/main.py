@@ -13,6 +13,7 @@ import os
 import re
 import time
 from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 
 import httpx
 from fastapi import FastAPI, HTTPException, Request
@@ -36,6 +37,10 @@ RATE_WINDOW = int(os.getenv("LIFELENS_RATE_WINDOW", str(60 * 60)))  # per hour, 
 BURST_LIMIT = int(os.getenv("LIFELENS_BURST_LIMIT", "5"))           # burst requests
 BURST_WINDOW = int(os.getenv("LIFELENS_BURST_WINDOW", "60"))        # per minute, per IP
 
+# Service-wide cost circuit breaker: the Anthropic API has no per-request hard
+# ceiling, so cap total upstream calls per UTC day across all callers.
+DAILY_BUDGET = int(os.getenv("LIFELENS_DAILY_BUDGET", "1000"))
+
 app = FastAPI(title="LifeLens API", version="1.0.0")
 
 app.add_middleware(
@@ -46,6 +51,7 @@ app.add_middleware(
 )
 
 _hits: dict[str, list[float]] = defaultdict(list)
+_daily: dict[str, int] = defaultdict(int)
 
 
 def _retry_after(ip: str) -> int:
@@ -64,6 +70,40 @@ def _retry_after(ip: str) -> int:
     return 0
 
 
+def _budget_retry_after() -> int:
+    """Seconds until the daily budget resets if it's spent, else 0."""
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    for day in [d for d in _daily if d != today]:
+        del _daily[day]  # keep only today's counter
+    if _daily[today] >= DAILY_BUDGET:
+        now = datetime.now(timezone.utc)
+        reset = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        return math.ceil((reset - now).total_seconds())
+    return 0
+
+
+def _spend_budget() -> None:
+    _daily[datetime.now(timezone.utc).strftime("%Y-%m-%d")] += 1
+
+
+def _enforce_limits(request: Request) -> None:
+    """Reject the request if the daily budget is spent (503) or the caller is
+    rate limited (429). Both responses carry a Retry-After header."""
+    wait = _budget_retry_after()
+    if wait:
+        raise HTTPException(
+            503,
+            "LifeLens has reached its daily capacity. Please try again tomorrow.",
+            headers={"Retry-After": str(wait)},
+        )
+    ip = request.client.host if request.client else "unknown"
+    wait = _retry_after(ip)
+    if wait:
+        raise HTTPException(
+            429, "Rate limit reached. Please slow down.", headers={"Retry-After": str(wait)}
+        )
+
+
 @app.get("/health")
 def health() -> dict:
     return {"status": "ok", "model": MODEL}
@@ -71,6 +111,7 @@ def health() -> dict:
 
 async def _complete(payload: dict, api_key: str) -> str:
     """POST to the model API; return the joined text blocks. Raises HTTPException."""
+    _spend_budget()  # an upstream call is the unit of cost we cap
     try:
         async with httpx.AsyncClient(timeout=120) as client:
             resp = await client.post(
@@ -143,12 +184,7 @@ def _salvage_chat_reply(text: str) -> ChatReply:
 
 @app.post("/scan", response_model=ScanResult)
 async def scan(req: ScanRequest, request: Request) -> ScanResult:
-    ip = request.client.host if request.client else "unknown"
-    wait = _retry_after(ip)
-    if wait:
-        raise HTTPException(
-            429, "Rate limit reached. Please slow down.", headers={"Retry-After": str(wait)}
-        )
+    _enforce_limits(request)
 
     try:
         raw = base64.b64decode(req.image_base64, validate=True)
@@ -205,12 +241,7 @@ async def scan(req: ScanRequest, request: Request) -> ScanResult:
 
 @app.post("/chat", response_model=ChatReply)
 async def chat(req: ChatRequest, request: Request) -> ChatReply:
-    ip = request.client.host if request.client else "unknown"
-    wait = _retry_after(ip)
-    if wait:
-        raise HTTPException(
-            429, "Rate limit reached. Please slow down.", headers={"Retry-After": str(wait)}
-        )
+    _enforce_limits(request)
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
