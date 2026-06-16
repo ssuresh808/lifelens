@@ -79,3 +79,46 @@ def test_failed_validation_does_not_spend_budget(fake_upstream, monkeypatch):
     assert client.post("/scan", json=bad).status_code == 400
     # the single budget unit is still available for a real request
     assert client.post("/scan", json=SCAN_BODY).status_code == 200
+
+
+SECURITY_HEADERS = (
+    "Strict-Transport-Security",
+    "X-Content-Type-Options",
+    "X-Frame-Options",
+    "Referrer-Policy",
+    "Permissions-Policy",
+    "Content-Security-Policy",
+)
+
+
+def test_security_headers_present_on_responses():
+    r = client.get("/health")
+    assert r.status_code == 200
+    for h in SECURITY_HEADERS:
+        assert h in r.headers, h
+    assert r.headers["X-Content-Type-Options"] == "nosniff"
+    assert r.headers["X-Frame-Options"] == "DENY"
+    assert "max-age=" in r.headers["Strict-Transport-Security"]
+
+
+def test_security_headers_on_error_responses(fake_upstream):
+    """A 429 must still carry both security headers and its Retry-After."""
+    last = None
+    for _ in range(main.BURST_LIMIT + 1):
+        last = client.post("/scan", json=SCAN_BODY)
+    assert last.status_code == 429
+    assert "Retry-After" in last.headers
+    assert last.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_cors_allows_configured_origin():
+    """The configured frontend origin is still permitted after tightening headers."""
+    r = client.options(
+        "/scan",
+        headers={
+            "Origin": "http://localhost:5173",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert r.headers.get("access-control-allow-origin") == "http://localhost:5173"

@@ -47,8 +47,28 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=os.getenv("LIFELENS_CORS_ORIGINS", "http://localhost:5173").split(","),
     allow_methods=["POST", "GET"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type"],  # the only header the client sends
 )
+
+# Sent on every response, including errors. The API only ever returns JSON, so
+# its own CSP locks rendering down entirely; HSTS hardens the HTTPS the platform
+# already terminates. The browser-facing frontend sets its own headers (vercel.json).
+SECURITY_HEADERS = {
+    "Strict-Transport-Security": "max-age=63072000; includeSubDomains",
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "no-referrer",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
+}
+
+
+@app.middleware("http")
+async def _security_headers(request: Request, call_next):
+    response = await call_next(request)
+    for key, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(key, value)
+    return response
 
 _hits: dict[str, list[float]] = defaultdict(list)
 _daily: dict[str, int] = defaultdict(int)
